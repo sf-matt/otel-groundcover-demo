@@ -34,7 +34,7 @@ spec:
           # Kept in sync by the `publish` job in .github/workflows/ci.yml,
           # which commits the new sha tag here after every build. Argo CD's
           # auto-sync then rolls it out — don't hand-edit the tag.
-          image: ghcr.io/sf-matt/otel-groundcover-demo:sha-3712999
+          image: ghcr.io/sf-matt/otel-groundcover-demo:sha-8b1404e
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -49,7 +49,7 @@ spec:
             # `kubectl set env` — Argo CD's selfHeal reverts it to whatever
             # is committed here within seconds. See README.
             - name: TRACEPARENT
-              value: "00-7e15e7b6bd16fb6945ae0f2352d43f92-e4cd937fa6ca6c28-01"
+              value: "00-3bddbdc2ea34bce59c612955d89fd23b-8e82e9275a6e2774-01"
           readinessProbe:
             httpGet:
               path: /healthz
