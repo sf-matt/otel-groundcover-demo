@@ -39,7 +39,7 @@ jobs:
         run: semgrep scan --config auto --json --output semgrep-results.json
       - name: Upload Semgrep results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: semgrep-results
           path: semgrep-results.json
@@ -61,7 +61,7 @@ jobs:
           severity: CRITICAL,HIGH
       - name: Upload IaC scan results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: trivy-iac-results
           path: trivy-iac-results.json
@@ -100,7 +100,7 @@ jobs:
           echo "$VALUE" > traceparent.txt
           echo "value=$VALUE" >> "$GITHUB_OUTPUT"
       - name: Upload deploy traceparent
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: deploy-traceparent
           path: traceparent.txt
@@ -132,7 +132,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
       - name: Upload Trivy results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: trivy-results
           path: trivy-results.json
