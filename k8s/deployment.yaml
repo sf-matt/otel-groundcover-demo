@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-groundcover-demo-config
+data:
+  OTEL_SERVICE_NAME: otel-groundcover-demo
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://groundcover-sensor.groundcover.svc.cluster.local:4318/v1/traces
+  DEPLOYMENT_ENVIRONMENT: demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-groundcover-demo
+  labels:
+    app: otel-groundcover-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-groundcover-demo
+  template:
+    metadata:
+      labels:
+        app: otel-groundcover-demo
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/OWNER/otel-groundcover-demo:main
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: otel-groundcover-demo-config
+          env:
+            # Optional: set this to a W3C traceparent (e.g. from the image's
+            # `groundcover.traceparent` OCI label) to link this rollout's
+            # startup span back to the CI/CD deploy trace. See README.
+            - name: TRACEPARENT
+              value: ""
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-groundcover-demo
+spec:
+  selector:
+    app: otel-groundcover-demo
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

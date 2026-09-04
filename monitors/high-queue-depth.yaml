@@ -1,0 +1,49 @@
+title: "otel-groundcover-demo: High Simulated Queue Depth"
+severity: S3
+measurementType: state
+display:
+  header: "otel-groundcover-demo queue depth spike"
+  description: >
+    The demo_workload_queue_depth custom metric (scraped from /metrics)
+    exceeded 100. Trigger it with: curl '<app-url>/work?queue_depth=500'.
+    Confirm the label filter below matches how this metric actually arrives
+    in your workspace before relying on this monitor — check it in the
+    metrics explorer first.
+  resourceHeaderLabels:
+    - workload
+model:
+  queries:
+    - name: queue_depth
+      datasourceType: prometheus
+      queryType: instant
+      expression: demo_workload_queue_depth{workload="otel-groundcover-demo"}
+      rollup:
+        function: max
+        time: 1m
+      relativeTimerange:
+        from: 5m
+        to: 0m
+  reducers:
+    - name: queue_depth_last
+      inputName: queue_depth
+      type: last
+  thresholds:
+    - name: high_queue_depth
+      inputName: queue_depth_last
+      operator: gt
+      values:
+        - 100
+      customResolveThreshold:
+        operator: lt
+        values:
+          - 20
+category: demo
+executionErrorState: OK
+noDataState: OK
+evaluationInterval:
+  interval: 1m
+  pendingFor: 1m
+notificationSettings:
+  method: noNotifications
+autoResolve: true
+isPaused: false

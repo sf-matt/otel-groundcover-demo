@@ -1,0 +1,49 @@
+title: "otel-groundcover-demo: High HTTP Error Rate"
+severity: S2
+measurementType: state
+display:
+  header: "otel-groundcover-demo error rate spike"
+  description: >
+    More than 20% of requests to the otel-groundcover-demo workload returned a
+    5xx status in the last 5 minutes. Trigger it with:
+    curl <app-url>/fail/http-500 (or /fail/exception, /fail/downstream).
+  resourceHeaderLabels:
+    - workload
+  contextHeaderLabels:
+    - env
+    - cluster
+    - namespace
+model:
+  queries:
+    - name: error_pct
+      dataType: traces
+      expression: >
+        workload:otel-groundcover-demo | stats
+          count() as requests,
+          count() if (status_code:5*) as errors
+        | math errors / requests * 100 as error_pct keep_existing
+      instantRollup: 5m
+  reducers:
+    - name: error_pct_last
+      inputName: error_pct
+      type: last
+  thresholds:
+    - name: high_error_rate
+      inputName: error_pct_last
+      operator: gt
+      values:
+        - 20
+      customResolveThreshold:
+        operator: lt
+        values:
+          - 5
+category: demo
+executionErrorState: OK
+noDataState: OK
+evaluationInterval:
+  interval: 1m
+  pendingFor: 2m
+notificationSettings:
+  method: noNotifications
+autoResolve: true
+isPaused: false
