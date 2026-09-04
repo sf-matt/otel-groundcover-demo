@@ -4,3 +4,9 @@ __pycache__/
 *.py[cod]
 .env
 .DS_Store
+
+# Terraform - never commit real variable values
+fargate/*.tfvars
+!fargate/terraform.tfvars.example
+fargate/.terraform/
+fargate/*.tfstate*

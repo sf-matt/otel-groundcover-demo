@@ -91,14 +91,34 @@ jobs:
           labels: |
             ${{ steps.meta.outputs.labels }}
             groundcover.traceparent=${{ steps.traceparent.outputs.value }}
-      - name: Deploy via GitOps
-        if: github.ref == 'refs/heads/main'
+      - name: Get sha image tag
+        id: image_tag
         run: |
           IMAGE_TAG=$(printf '%s\n' "${{ steps.meta.outputs.tags }}" | grep ':sha-' | head -n1)
           if [ -z "$IMAGE_TAG" ]; then
             echo "::error::no sha-tagged image found in metadata-action output"
             exit 1
           fi
+          echo "value=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+      - name: Scan image for vulnerabilities
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.image_tag.outputs.value }}
+          format: 'json'
+          output: 'trivy-results.json'
+          severity: 'CRITICAL,HIGH'
+      - name: Upload Trivy results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-results
+          path: trivy-results.json
+          if-no-files-found: ignore
+      - name: Deploy via GitOps
+        if: github.ref == 'refs/heads/main'
+        run: |
+          IMAGE_TAG="${{ steps.image_tag.outputs.value }}"
           sed -i "s#^\( *\)image: ghcr.io/.*/otel-groundcover-demo:.*#\1image: ${IMAGE_TAG}#" k8s/deployment.yaml
           sed -i "/name: TRACEPARENT/{n;s#value: \".*\"#value: \"${{ steps.traceparent.outputs.value }}\"#;}" k8s/deployment.yaml
           if git diff --quiet -- k8s/deployment.yaml; then

@@ -1,0 +1,9 @@
+aws_region           = "us-west-1"
+otel_endpoint        = "https://experiments.platform-dev.grcv.io/v1/traces"
+groundcover_api_key  = "REPLACE_ME"
+# optional, defaults to "env=fargate-demo" - comma-separated key=value custom tags
+# otel_resource_attributes = "env=fargate-demo,team=sre"
+
+# required - your public IP so you can actually reach the app; find it with
+# `curl -s ifconfig.me` and append /32
+allowed_ingress_cidr = "REPLACE_ME/32"

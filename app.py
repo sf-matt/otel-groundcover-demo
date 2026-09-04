@@ -7,10 +7,16 @@ from typing import Any
 
 import requests
 from flask import Flask, Response, jsonify, request
-from opentelemetry import trace
+from opentelemetry import metrics, trace
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.propagate import extract
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -42,19 +48,53 @@ def configure_logging() -> None:
     root.setLevel(logging.INFO)
 
 
-def configure_telemetry() -> None:
-    resource = Resource.create(
+def build_resource() -> Resource:
+    return Resource.create(
         {
             "service.name": os.getenv("OTEL_SERVICE_NAME", "otel-groundcover-demo"),
             "service.version": os.getenv("APP_VERSION", "dev"),
             "deployment.environment.name": os.getenv("DEPLOYMENT_ENVIRONMENT", "local"),
         }
     )
+
+
+def configure_telemetry(resource: Resource) -> None:
     provider = TracerProvider(resource=resource)
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     if endpoint:
         provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
     trace.set_tracer_provider(provider)
+
+
+def configure_metrics(resource: Resource) -> None:
+    """Push metrics via OTLP, in addition to the /metrics scrape endpoint below.
+
+    Safe to enable everywhere: on k8s this just adds a second, redundant path
+    for the same custom gauge alongside the existing Prometheus scrape - no
+    duplication risk the way logs have (see configure_logs_export).
+    """
+    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    if not endpoint:
+        metrics.set_meter_provider(MeterProvider(resource=resource))
+        return
+    reader = PeriodicExportingMetricReader(OTLPMetricExporter(endpoint=endpoint))
+    metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[reader]))
+
+
+def configure_logs_export(resource: Resource) -> None:
+    """Push logs via OTLP - only when explicitly enabled, e.g. on Fargate.
+
+    On k8s, groundcover's sensor already tails pod stdout directly; enabling
+    this there too would double-ingest every log line. OTEL_LOGS_ENABLED
+    keeps this opt-in per environment rather than tied to the same endpoint
+    check traces/metrics use.
+    """
+    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    if not endpoint or os.getenv("OTEL_LOGS_ENABLED") != "true":
+        return
+    provider = LoggerProvider(resource=resource)
+    provider.add_log_record_processor(BatchLogRecordProcessor(OTLPLogExporter(endpoint=endpoint)))
+    logging.getLogger().addHandler(LoggingHandler(logger_provider=provider))
 
 
 def link_deploy_trace() -> None:
@@ -74,7 +114,10 @@ def link_deploy_trace() -> None:
 
 
 configure_logging()
-configure_telemetry()
+_resource = build_resource()
+configure_telemetry(_resource)
+configure_metrics(_resource)
+configure_logs_export(_resource)
 app = Flask(__name__)
 FlaskInstrumentor().instrument_app(app)
 tracer = trace.get_tracer(__name__)
@@ -83,6 +126,10 @@ logger = logging.getLogger("otel-groundcover-demo")
 WORKLOAD_QUEUE_DEPTH = Gauge(
     "demo_workload_queue_depth",
     "Simulated backlog depth for this workload, set via /work?queue_depth=N",
+)
+WORKLOAD_QUEUE_DEPTH_OTEL = metrics.get_meter(__name__).create_gauge(
+    "demo_workload_queue_depth",
+    description="Simulated backlog depth for this workload, set via /work?queue_depth=N",
 )
 
 link_deploy_trace()
@@ -111,7 +158,7 @@ def healthz() -> Any:
 
 
 @app.get("/metrics")
-def metrics() -> Any:
+def metrics_endpoint() -> Any:
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 
@@ -123,6 +170,7 @@ def work() -> Any:
         span.set_attribute("demo.workload", workload)
         span.set_attribute("demo.queue_depth", queue_depth)
         WORKLOAD_QUEUE_DEPTH.set(queue_depth)
+        WORKLOAD_QUEUE_DEPTH_OTEL.set(queue_depth)
         time.sleep(0.02)
         return jsonify({"status": "completed", "workload": workload, "queue_depth": queue_depth})
 
