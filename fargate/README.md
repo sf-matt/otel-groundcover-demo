@@ -22,9 +22,17 @@ on ECS Fargate, configured to send OTel traces/metrics/logs to groundcover.
 - Uses the default VPC + a public subnet with assign_public_ip = true,
   since there's no NAT gateway configured. Fine for a demo, not for
   production (use private subnets + NAT there instead).
-- The groundcover OTel wiring (endpoint, headers, service/env name) has
-  not yet been independently validated end-to-end for this Fargate case -
-  confirm traces actually land in groundcover after first apply.
+- The groundcover OTel wiring (endpoint, headers, service/env name) is
+  confirmed working end-to-end for traces, logs, and metrics - verified by
+  generating real traffic and querying groundcover directly for it.
+  `otel_endpoint` must be the bare base host with no `/v1/...` path suffix
+  (the SDK appends the correct one per signal itself); a path-suffixed
+  value breaks metrics/logs specifically, since they need a different
+  suffix than traces.
+- If logs or metrics seem to be missing for a given window, check
+  CloudWatch (`/ecs/fargate-demo`) before assuming this config is wrong -
+  traces, logs, and metrics have all been separately confirmed landing
+  correctly with this setup.
 - The API key never appears in the task definition. Terraform stores the
   full OTEL_EXPORTER_OTLP_HEADERS string (including the key) in AWS Secrets
   Manager, and the task definition only references that secret's ARN - ECS
