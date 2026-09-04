@@ -5,14 +5,20 @@ variable "aws_region" {
 }
 
 variable "otel_endpoint" {
+  # No default on purpose: unlike the k8s ConfigMap's endpoint (an
+  # in-cluster-only DNS name, unreachable from outside and not specific to
+  # any workspace), this is a real internet-reachable SaaS URL tied to a
+  # specific groundcover tenant. Not a credential on its own, but no reason
+  # to publish which tenant/ingestion endpoint exists in a public repo -
+  # set it via terraform.tfvars (gitignored), like groundcover_api_key.
+  #
   # Bare base endpoint, no /v1/... suffix. app.py lets each OTLP exporter
   # read this env var itself rather than passing endpoint= explicitly, so
   # it auto-appends the correct per-signal path (/v1/traces, /v1/metrics,
   # /v1/logs). A path baked in here would break metrics/logs, which need
   # a different suffix than traces - confirmed directly against the SDK.
-  description = "groundcover OTLP base endpoint for this workspace (no /v1/... path)"
+  description = "groundcover OTLP base endpoint for this workspace (no /v1/... path) - set via terraform.tfvars, not committed"
   type        = string
-  default     = "https://experiments.platform-dev.grcv.io"
 }
 
 variable "groundcover_api_key" {

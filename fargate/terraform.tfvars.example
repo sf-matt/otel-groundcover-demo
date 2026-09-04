@@ -1,5 +1,7 @@
 aws_region           = "us-west-1"
-otel_endpoint        = "https://experiments.platform-dev.grcv.io"
+# your groundcover OTLP base endpoint, no /v1/... path - not committed on
+# purpose, see the comment on this variable in variables.tf
+otel_endpoint        = "REPLACE_ME"
 groundcover_api_key  = "REPLACE_ME"
 # optional, defaults to "env=fargate-demo" - comma-separated key=value custom tags
 # otel_resource_attributes = "env=fargate-demo,team=sre"
