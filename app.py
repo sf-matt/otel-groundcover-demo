@@ -60,9 +60,17 @@ def build_resource() -> Resource:
 
 def configure_telemetry(resource: Resource) -> None:
     provider = TracerProvider(resource=resource)
-    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-    if endpoint:
-        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
+    if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+        # No endpoint= here on purpose: letting the exporter read
+        # OTEL_EXPORTER_OTLP_ENDPOINT itself makes it auto-append the
+        # correct per-signal path (/v1/traces here, /v1/metrics,
+        # /v1/logs for the exporters below). Passing endpoint= explicitly
+        # disables that auto-append entirely - confirmed directly against
+        # the installed SDK - which is exactly what broke metrics/logs
+        # when OTEL_EXPORTER_OTLP_ENDPOINT was set to the /v1/traces URL
+        # for the trace exporter specifically. Set this env var to the
+        # bare base endpoint (no /v1/... suffix) everywhere it's configured.
+        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
     trace.set_tracer_provider(provider)
 
 
@@ -73,11 +81,10 @@ def configure_metrics(resource: Resource) -> None:
     for the same custom gauge alongside the existing Prometheus scrape - no
     duplication risk the way logs have (see configure_logs_export).
     """
-    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-    if not endpoint:
+    if not os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
         metrics.set_meter_provider(MeterProvider(resource=resource))
         return
-    reader = PeriodicExportingMetricReader(OTLPMetricExporter(endpoint=endpoint))
+    reader = PeriodicExportingMetricReader(OTLPMetricExporter())
     metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[reader]))
 
 
@@ -89,11 +96,10 @@ def configure_logs_export(resource: Resource) -> None:
     keeps this opt-in per environment rather than tied to the same endpoint
     check traces/metrics use.
     """
-    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-    if not endpoint or os.getenv("OTEL_LOGS_ENABLED") != "true":
+    if not os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT") or os.getenv("OTEL_LOGS_ENABLED") != "true":
         return
     provider = LoggerProvider(resource=resource)
-    provider.add_log_record_processor(BatchLogRecordProcessor(OTLPLogExporter(endpoint=endpoint)))
+    provider.add_log_record_processor(BatchLogRecordProcessor(OTLPLogExporter()))
     logging.getLogger().addHandler(LoggingHandler(logger_provider=provider))
 
 

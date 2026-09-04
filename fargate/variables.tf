@@ -5,14 +5,14 @@ variable "aws_region" {
 }
 
 variable "otel_endpoint" {
-  # Must include the /v1/traces path: app.py passes this straight to
-  # OTLPSpanExporter(endpoint=...) explicitly, which - unlike the
-  # env-var-only auto-resolution path - does NOT auto-append /v1/traces.
-  # Confirmed directly against the installed SDK: passing endpoint="https://host"
-  # results in the exporter using exactly that string, no suffix added.
-  description = "groundcover OTLP traces endpoint for this workspace, including /v1/traces"
+  # Bare base endpoint, no /v1/... suffix. app.py lets each OTLP exporter
+  # read this env var itself rather than passing endpoint= explicitly, so
+  # it auto-appends the correct per-signal path (/v1/traces, /v1/metrics,
+  # /v1/logs). A path baked in here would break metrics/logs, which need
+  # a different suffix than traces - confirmed directly against the SDK.
+  description = "groundcover OTLP base endpoint for this workspace (no /v1/... path)"
   type        = string
-  default     = "https://experiments.platform-dev.grcv.io/v1/traces"
+  default     = "https://experiments.platform-dev.grcv.io"
 }
 
 variable "groundcover_api_key" {

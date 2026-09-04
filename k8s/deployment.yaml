@@ -4,7 +4,9 @@ metadata:
   name: otel-groundcover-demo-config
 data:
   OTEL_SERVICE_NAME: otel-groundcover-demo
-  OTEL_EXPORTER_OTLP_ENDPOINT: http://groundcover-sensor.groundcover.svc.cluster.local:4318/v1/traces
+  # Bare base endpoint, no /v1/... suffix - the SDK appends the correct
+  # per-signal path itself (see app.py's configure_telemetry comment).
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://groundcover-sensor.groundcover.svc.cluster.local:4318
   DEPLOYMENT_ENVIRONMENT: demo
 ---
 apiVersion: apps/v1

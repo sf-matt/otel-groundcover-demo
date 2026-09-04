@@ -18,9 +18,11 @@ The app listens on `http://localhost:8080`. Without an OTLP endpoint, traces rem
 
 ```bash
 export OTEL_SERVICE_NAME=otel-groundcover-demo
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/traces
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 python app.py
 ```
+
+Use the bare base endpoint, no `/v1/...` path - the SDK appends the correct one per signal (traces/metrics/logs) itself. Passing a path-suffixed endpoint here would break metrics and logs export, which need a different path than traces.
 
 ## Trigger traffic and failures
 
