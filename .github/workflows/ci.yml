@@ -100,6 +100,7 @@ jobs:
             exit 1
           fi
           sed -i "s#^\( *\)image: ghcr.io/.*/otel-groundcover-demo:.*#\1image: ${IMAGE_TAG}#" k8s/deployment.yaml
+          sed -i "/name: TRACEPARENT/{n;s#value: \".*\"#value: \"${{ steps.traceparent.outputs.value }}\"#;}" k8s/deployment.yaml
           if git diff --quiet -- k8s/deployment.yaml; then
             echo "k8s/deployment.yaml already points at ${IMAGE_TAG}, nothing to commit"
             exit 0

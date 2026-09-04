@@ -41,9 +41,11 @@ spec:
             - configMapRef:
                 name: otel-groundcover-demo-config
           env:
-            # Optional: set this to a W3C traceparent (e.g. from the image's
-            # `groundcover.traceparent` OCI label) to link this rollout's
-            # startup span back to the CI/CD deploy trace. See README.
+            # Kept in sync by the same CI step as the image tag above, with
+            # the traceparent that build stamped on the image's
+            # `groundcover.traceparent` label. Don't hand-set this with
+            # `kubectl set env` — Argo CD's selfHeal reverts it to whatever
+            # is committed here within seconds. See README.
             - name: TRACEPARENT
               value: ""
           readinessProbe:

@@ -59,18 +59,13 @@ groundcover correlates logs and traces on a shared `trace_id` field (case-insens
 
 ### Linking the CI/CD deploy trace to the running app
 
-The `groundcover-github-action` used in `export-traces.yml` supports linking a CI/CD trace to application traces via a W3C `traceparent`. This repo wires that up end-to-end:
+The `groundcover-github-action` used in `export-traces.yml` supports linking a CI/CD trace to application traces via a W3C `traceparent`. This repo wires that up end-to-end, entirely through git — same as the image tag:
 
 1. The `publish` job in `ci.yml` generates a random `traceparent`, uploads it as the `deploy-traceparent` workflow artifact, and stamps it onto the pushed image as the `groundcover.traceparent` OCI label.
 2. `export-traces.yml` downloads that artifact and passes it as the action's `traceparent` input (along with `workload: otel-groundcover-demo`), so the exported CI/CD trace becomes part of the same trace as whatever deploys the image.
-3. To link the *running app* to that same trace, read the traceparent back off the image and pass it into the container as `TRACEPARENT`:
+3. The same "Deploy via GitOps" step that writes the new image tag into `k8s/deployment.yaml` also writes this same `traceparent` into the `TRACEPARENT` env var there, in the same commit. Argo CD syncs both together, so the running pod's `TRACEPARENT` always matches the build that produced its image, and the app emits one `app.startup` span as a child of that trace on boot.
 
-   ```bash
-   TRACEPARENT=$(docker inspect ghcr.io/<owner>/otel-groundcover-demo:main --format '{{ index .Config.Labels "groundcover.traceparent" }}')
-   kubectl set env deployment/otel-groundcover-demo TRACEPARENT="$TRACEPARENT"
-   ```
-
-   On next pod start, the app emits one `app.startup` span as a child of that trace — so from the CI/CD trace you can jump straight to the moment this rollout came up, and from there into whatever traces or logs followed. `k8s/deployment.yaml` includes an empty `TRACEPARENT` env var as a placeholder for this.
+**Don't set `TRACEPARENT` by hand** (e.g. `kubectl set env`) on a cluster where this Application has `selfHeal: true` — confirmed by testing it directly: `argocd.argoproj.io` reverted a manually-patched value back to the git-committed empty string within about 10 seconds, before the rolled pod could reliably come up with it. A `ReplicaSet` briefly spun up and was scaled back to zero without ever emitting the linked span. Because `TRACEPARENT` is now git-managed like everything else in `k8s/`, this isn't a limitation in practice — it's just not a field you'd want to hand-edit anyway, the same way you wouldn't hand-edit the image tag.
 
 ## Monitors
 
