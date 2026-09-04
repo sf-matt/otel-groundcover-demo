@@ -45,6 +45,28 @@ jobs:
           path: semgrep-results.json
           if-no-files-found: ignore
 
+  iac-scan:
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan IaC for misconfigurations
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          skip-dirs: .venv,fargate/.terraform
+          format: json
+          output: trivy-iac-results.json
+          severity: CRITICAL,HIGH
+      - name: Upload IaC scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-iac-results
+          path: trivy-iac-results.json
+          if-no-files-found: ignore
+
   publish:
     if: github.event_name == 'push'
     needs: test
