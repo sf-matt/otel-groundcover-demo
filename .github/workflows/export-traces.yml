@@ -31,4 +31,5 @@ jobs:
           runId: ${{ github.event.workflow_run.id }}
           githubToken: ${{ github.token }}
           workload: otel-groundcover-demo
+          otelServiceName: otel-groundcover-demo
           traceparent: ${{ steps.traceparent.outputs.value }}
