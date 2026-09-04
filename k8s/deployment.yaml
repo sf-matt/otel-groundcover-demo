@@ -29,8 +29,11 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghcr.io/OWNER/otel-groundcover-demo:main
-          imagePullPolicy: Always
+          # Kept in sync by the `publish` job in .github/workflows/ci.yml,
+          # which commits the new sha tag here after every build. Argo CD's
+          # auto-sync then rolls it out — don't hand-edit the tag.
+          image: ghcr.io/sf-matt/otel-groundcover-demo:main
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8080

@@ -94,12 +94,20 @@ The separate `.github/workflows/export-traces.yml` workflow sends completed GitH
 
 The export workflow is triggered after `Build and Push App` completes and does not expose either secret in logs or image layers.
 
-The image name in `k8s/deployment.yaml` uses `OWNER` as a placeholder. Replace it with the GitHub owner before applying:
+## GitOps deploy with Argo CD
+
+Deploys are fully automated via Argo CD rather than manual `kubectl apply`:
+
+1. On every push to `main`, the `publish` job in `ci.yml` builds and pushes an immutable, sha-tagged image (`ghcr.io/<owner>/otel-groundcover-demo:sha-<shortsha>`), then rewrites the `image:` line in `k8s/deployment.yaml` to that tag and pushes the commit back to `main` (with `[skip ci]`, so it doesn't retrigger CI). This requires the `publish` job's `contents: write` permission, already set in `ci.yml`.
+2. Argo CD watches this repo's `k8s/` path and auto-syncs (`prune` + `selfHeal`) into its own `otel-groundcover-demo` namespace, so that commit rolls out on its own.
+
+Bootstrap the Argo CD `Application` once, against a cluster that already has Argo CD installed:
 
 ```bash
-sed -i '' 's/OWNER/your-github-owner/' k8s/deployment.yaml
-kubectl apply -f k8s/deployment.yaml
+kubectl apply -f argocd/application.yaml
 ```
+
+`argocd/application.yaml` hardcodes this repo's URL (`sf-matt/otel-groundcover-demo`) — update `spec.source.repoURL` if you fork it. Because the deployed tag now lives only in git (kept current by CI), don't hand-edit the `image:` line in `k8s/deployment.yaml` — a manual edit will just get overwritten by the next push, or reverted by Argo CD's `selfHeal` if the cluster and git ever disagree.
 
 ## Kubernetes and Groundcover
 

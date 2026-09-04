@@ -49,6 +49,9 @@ jobs:
     if: github.event_name == 'push'
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: docker/metadata-action@v5
@@ -85,3 +88,21 @@ jobs:
           labels: |
             ${{ steps.meta.outputs.labels }}
             groundcover.traceparent=${{ steps.traceparent.outputs.value }}
+      - name: Deploy via GitOps
+        if: github.ref == 'refs/heads/main'
+        run: |
+          IMAGE_TAG=$(printf '%s\n' "${{ steps.meta.outputs.tags }}" | grep ':sha-' | head -n1)
+          if [ -z "$IMAGE_TAG" ]; then
+            echo "::error::no sha-tagged image found in metadata-action output"
+            exit 1
+          fi
+          sed -i "s#^\( *\)image: ghcr.io/.*/otel-groundcover-demo:.*#\1image: ${IMAGE_TAG}#" k8s/deployment.yaml
+          if git diff --quiet -- k8s/deployment.yaml; then
+            echo "k8s/deployment.yaml already points at ${IMAGE_TAG}, nothing to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/deployment.yaml
+          git commit -m "chore: deploy ${IMAGE_TAG} [skip ci]"
+          git push origin HEAD:main
