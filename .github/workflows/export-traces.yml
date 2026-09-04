@@ -2,7 +2,7 @@ name: Export CI Traces
 
 on:
   workflow_run:
-    workflows: ["Build and Push App", "Runner Comparison (Docker Build)"]
+    workflows: ["Build and Push App"]
     types: [completed]
 
 jobs:
