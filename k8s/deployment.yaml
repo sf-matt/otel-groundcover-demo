@@ -32,7 +32,7 @@ spec:
           # Kept in sync by the `publish` job in .github/workflows/ci.yml,
           # which commits the new sha tag here after every build. Argo CD's
           # auto-sync then rolls it out — don't hand-edit the tag.
-          image: ghcr.io/sf-matt/otel-groundcover-demo:main
+          image: ghcr.io/sf-matt/otel-groundcover-demo:sha-c4f4063
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
